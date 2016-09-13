@@ -7,6 +7,7 @@ import (
 )
 
 
+//Declaramos una variable, en la cual llevaremos el conteo de los consumidores conectados !
 var consumeConnectCounter uint8
 
 func main() {
@@ -36,7 +37,7 @@ func main() {
 		})
 
 		so.On("disconnection", func() {
-			log.Println("Consumidor disconnect")
+			log.Println("Se ha desconectado un Consumidor")
 			consumeConnectCounter -= 1
 		})
 	})
@@ -47,6 +48,8 @@ func main() {
 	})
 
 	http.Handle("/socket.io/", server)
+
+	//Urilizamos http.FileServer y le pasamos la carpeta donde estan los archivos Estaticos.
 	http.Handle("/", http.FileServer(http.Dir("./public")))
 	log.Println("Serving at localhost:5000")
 	log.Fatal(http.ListenAndServe(":5000", nil))

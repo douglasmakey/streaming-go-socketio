@@ -74,7 +74,8 @@
     }
 
     $(function(){
-      navigator.getUserMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia
+        //Obtenemos el getUserMedia segun el navegador
+        navigator.getUserMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia
                                 || navigator.mozGetUserMedia || navigator.msgGetUserMedia);
 
       if(navigator.getUserMedia){
