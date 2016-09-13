@@ -1,0 +1,41 @@
+/* Tengo como 1 año sin hacer nada de  CSS */
+@import url('//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css');
+
+#video {
+    margin-left: auto;
+    margin-right: auto;
+    display: block
+}
+
+.center{
+    text-align: center;
+}
+
+.logger{
+    margin-left: -4px;
+    margin-top: -8px;
+}
+.isa_info, .isa_success, .isa_error {
+    height: 15px;
+    width: 615px;
+    padding:12px;
+    margin-left: auto;
+    margin-right: auto;
+    display: block
+}
+.isa_info {
+    color: #00529B;
+    background-color: #BDE5F8;
+}
+.isa_success {
+    color: #4F8A10;
+    background-color: #DFF2BF;
+}
+.isa_error {
+    color: #D8000C;
+    background-color: #FFBABA;
+}
+.isa_info i, .isa_success i,  .isa_error i {
+    font-size:2em;
+    vertical-align:middle;
+}

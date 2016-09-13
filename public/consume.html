@@ -1,0 +1,23 @@
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <link rel="stylesheet" href="css/init.css">
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.8/socket.io.js"></script>
+  <title>Consume stream</title>
+</head>
+<body>
+<div class="stream" style="text-align: center">
+  <h2>Streaming</h2>
+  <img id="play">
+</div>
+
+  <script type="text/javascript" charset="utf-8">
+    var socket = io();
+
+    socket.on('stream', function(image){
+      var img = document.getElementById("play");
+      img.src = image;
+    });
+  </script>
+</body>
+</html>

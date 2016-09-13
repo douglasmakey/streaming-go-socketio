@@ -1,0 +1,91 @@
+<html lang="es">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" href="css/init.css">
+  <script src="https://code.jquery.com/jquery-1.12.4.min.js"   integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="   crossorigin="anonymous"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.8/socket.io.js"></script>
+  <title>Emit Video</title> 
+</head>
+<body>
+    <h2 class="center">Video</h2>
+    <video src="" id="video" autoplay="true"></video>
+    <canvas id="preview" style="display:none;"></canvas>
+
+    <div  id="box_logger">
+        <div class="logger">
+            <i id="box_logger-icon"></i>
+            <spam id="logger"></spam>
+        </div>
+    </div>
+
+    <div  class="isa_info">
+        <div class="logger">
+            <i class="fa fa-info-circle"></i>
+            Consumidores conectados: <spam id="counter"></spam>
+        </div>
+    </div>
+
+  <script type="text/javascript" charset="utf-8">
+    //Obtenemos el canvas y el contexto y fijamos su tamaño.
+    var canvas = document.getElementById("preview");
+    var context = canvas.getContext("2d");
+    canvas.width = 800;
+    canvas.height = 600;
+    context.width = canvas.width;
+    context.height = canvas.height;
+
+    //Obtenemos el DIV donde se mostrara el video
+    var video = document.getElementById("video");
+
+    //Instanciamos Socketio
+    var socket = io();
+
+
+    //Actualizamos el contador
+    socket.on("count-consume", function (count) {
+        console.log(count)
+      $("#counter").text(count)
+    });
+
+    function logger(type, msg){
+        if (type == 'sucess'){
+            $("#box_logger").addClass("isa_success")
+            $("#box_logger-icon").addClass("fa fa-check")
+        }else{
+            $("#box_logger").addClass("isa_error")
+            $("#box_logger-icon").addClass("fa fa-times-circle")
+        }
+      $("#logger").text(msg);
+    }
+
+    function ok(stream){
+      video.src = window.URL.createObjectURL(stream)
+      logger('sucess', 'Camara disponible !');
+    }
+
+    function fail(){
+      logger('error', 'Ha ocurrido un problema, No logramos detectar su Camara !');
+    }
+
+
+    function Consume(video, context){
+      context.drawImage(video, 0, 0, context.width, context.height);
+      socket.emit('stream', canvas.toDataURL('image/webp'));
+    }
+
+    $(function(){
+      navigator.getUserMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia
+                                || navigator.mozGetUserMedia || navigator.msgGetUserMedia);
+
+      if(navigator.getUserMedia){
+        navigator.getUserMedia({video:true}, ok, fail);
+      }
+
+      setInterval(function(){
+        Consume(video, context)
+      }, 50);
+
+    });
+  </script>
+</body>
+</html>

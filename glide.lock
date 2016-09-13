@@ -1,0 +1,18 @@
+hash: cd85dfe06801e2ac867e4933d92a4369f5e7c0811b1b7c1a4c0f9f8da06718a3
+updated: 2016-09-12T15:42:46.135449036-03:00
+imports:
+- name: github.com/googollee/go-engine.io
+  version: ca9ced27e02c880970ee7726f9814f8a9c55d777
+  subpackages:
+  - message
+  - parser
+  - polling
+  - transport
+  - websocket
+- name: github.com/googollee/go-socket.io
+  version: e9f0a9b7a61267e1476f9f0a0429337813c39edd
+- name: github.com/gorilla/websocket
+  version: 2d1e4548da234d9cb742cc3628556fef86aafbac
+- name: github.com/urfave/negroni
+  version: fde5e16d32adc7ad637e9cd9ad21d4ebc6192535
+testImports: []
