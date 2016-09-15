@@ -2,9 +2,8 @@ Un pequeño proyecto de Streaming en GO, utilizando Socketio
 
 Buenas chicos, este pequeño proyecto lo lleve a cabo para practicar un poco con GO, el codigo como veran acontinuacion es muy sencillo, fue un proyecto que vi hace un tiempo por internet que hicieron con Nodejs y Socketio y me llamo la atencion, ya que no es el típico ejemplo de Chat con socket.
 
-Para este articulo necesitamos tener instalado Go, si no lo tienen aqui un buen articulo.
-https://medium.com/@golang_es/instalación-de-go-golang-6fd5d7b9eb48#.bjg97j6yl
-
+Para este articulo necesitamos tener instalado Go:
+<a href="https://programadores.io/instalando-go/">Instalando Go</a>
 
 Utilizaremos la libreria Socketio en Go:
 <a href="https://github.com/googollee/go-socket.io">https://github.com/googollee/go-socket.io</a>
@@ -14,12 +13,13 @@ Más las librerías estándar de Go:
 * net/http
 * strconv
 
+El código es muy simple y la mayoría tiene comentarios que explican su funcionamiento.
 
-NOTA: En este pequeño proyecto utilice el manejador de dependecias GLIDE
-Descargamos o clonamos el repositorio en el directorio que nos plazca, ingresamos a la carpeta y ejecutamos
+
+NOTA: En este pequeño proyecto utilice el manejador de dependecias GLIDE Descargamos o clonamos el repositorio en el directorio que nos plazca, ingresamos a la carpeta y ejecutamos
 <code>glide install</code>
 
-El código es muy simple y la mayoría tiene comentarios que explican su funcionamiento.
+
 
 <strong>- Archivo main.go</strong>
 <pre class="lang:go decode:true">
