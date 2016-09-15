@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"regexp"
 )
 
 //Declaramos un tipo transmitter que tendra la estructura del emisor.
@@ -119,6 +120,12 @@ func main() {
 
 		//Recibimos los mensajes del chat y reenviamos a la sala a cual pertenece
 		so.On("chat", func(m string) {
+			//Validamos que el mensaje no contenga etiquetas HTML
+			if m, _ := regexp.MatchString(`<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>`, m); !m {
+				///<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:'[^']*')|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/
+				return false
+			}
+
 			//userName para guardar el nombre de quien emite.
 			var userName string
 			//Tipo: 'Emisor' se guarda el nombre del Namespace
