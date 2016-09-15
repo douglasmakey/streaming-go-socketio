@@ -83,14 +83,19 @@
         //capturamos el evento keyup y validamos que sea la tecla ENTER
         $message.keyup(function(event){
             if(event.keyCode == 13){
-                //Obtenemos el valor del input
-                var message = $($message).val();
-                //Realizamos el append a la caja
-                $boxChat.append("<p> Yo:"   + message + "</p>");
-                //Volvemos a poner en blanco el valor del input
-                $message.val("")
-                //Emitimos el mensaje
-                socket.emit("chat", message);
+                if ($message.val().match(/<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/)) {
+                    alert('No puedes utilizar HTML');
+                    $message.val("")
+                } else {
+                    //Obtenemos el valor del input
+                    var message = $($message).val();
+                    //Realizamos el append a la caja
+                    $boxChat.append("<p> Yo: "   + message + "</p>");
+                    //Volvemos a poner en blanco el valor del input
+                    $message.val("")
+                    //Emitimos el mensaje
+                    socket.emit("chat", message);
+                }
             }
         });
 
