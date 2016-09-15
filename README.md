@@ -12,6 +12,12 @@ Utilizaremos la libreria Socketio en Go:
 Más las librerías estándar de Go:
 * log
 * net/http
+* strconv
+
+
+NOTA: En este pequeño proyecto utilice el manejador de dependecias GLIDE
+Descargamos o clonamos el repositorio en el directorio que nos plazca, ingresamos a la carpeta y ejecutamos
+<code>glide install</code>
 
 El código es muy simple y la mayoría tiene comentarios que explican su funcionamiento.
 
@@ -378,24 +384,99 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
 <pre class="lang:xhtml decode:true ">
 <html>
 <head>
-  <meta http-equiv="content-type" content="text/html; charset=utf-8">
-  <link rel="stylesheet" href="css/init.css">
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.8/socket.io.js"></script>
-  <title>Consume stream</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" href="css/init.css">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.8/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"   integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="   crossorigin="anonymous"></script>
+    <title>Consume stream</title>
 </head>
 <body>
 <div class="stream" style="text-align: center">
   <h2>Streaming</h2>
-  <img id="play">
+  <img id="play" style="border: solid 1px;" >
+  <div id="chat" class="center">
+      <div  id="box-init" class="box-namespace">
+          <input type="text" id="name" placeholder="Tu nombre">
+          <button onclick="initSocket()" >Ver Streaming</button>
+      </div>
+      <div id="container" class="hidden">
+          <div id="box_chat" class="center"></div>
+          <input class="center" type="text" id="message" placeholder="Escribe tu Mensaje">
+      </div>
+  </div>
 </div>
 
   <script type="text/javascript" charset="utf-8">
-    var socket = io();
+      //func para obtener los parametros desde la URL
+      var QueryString = function () {
+      // This function is anonymous, is executed immediately and
+      // the return value is assigned to QueryString!
+      var query_string = {};
+      var query = window.location.search.substring(1);
+      var vars = query.split("&");
+      for (var i=0;i<vars.length;i++) {
+        var pair = vars[i].split("=");
+        // If first entry with this name
+        if (typeof query_string[pair[0]] === "undefined") {
+          query_string[pair[0]] = decodeURIComponent(pair[1]);
+          // If second entry with this name
+        } else if (typeof query_string[pair[0]] === "string") {
+          var arr = [ query_string[pair[0]],decodeURIComponent(pair[1]) ];
+          query_string[pair[0]] = arr;
+          // If third or later entry with this name
+        } else {
+          query_string[pair[0]].push(decodeURIComponent(pair[1]));
+        }
+      }
+      return query_string;
+    }();
 
-    socket.on('stream', function(image){
-      var img = document.getElementById("play");
-      img.src = image;
-    });
+      function initSocket(){
+          if (QueryString.namespace){
+              //Utilizamos la func QueryString para obtener el namespace de la URL
+              var namespace = QueryString.namespace
+
+              //Obtenemos el nombre del consumidor
+              var user = $("#name").val()
+
+              //Instanciamos Socketio, pasando por QueryParam los parametros de conexion
+              var socket = io.connect('', {query: 'type=consumer&namespace=' + namespace + '&user=' + user, reconnection: false});
+
+              socket.on('stream-' + namespace, function(image){
+                  var img = document.getElementById("play");
+                  img.src = image;
+              });
+
+              $("#container").removeClass("hidden");
+              $("#container").addClass("show");
+              $("#box-init").addClass("hidden");
+
+              //Obtenemos el div de la caja de chat
+              var $boxChat = $("#box_chat");
+
+              //Evento[message-namespace] - renderizamos los mensajes que recibimos del socket
+              socket.on('message-' + namespace, function(data){
+                  $boxChat.append("<p>" + data.name + ": "  + data.message + "</p>");
+              });
+
+              //Obtenemos el input del mensaje
+              var $message = $("#message");
+              //capturamos el evento keyup y validamos que sea la tecla ENTER
+              $message.keyup(function(event){
+                  if(event.keyCode == 13){
+                      //Obtenemos el valor del input
+                      var message = $($message).val();
+                      //Realizamos el append a la caja
+                      $boxChat.append("<p> Yo:"   + message + "</p>");
+                      //Volvemos a poner en blanco el valor del input
+                      $message.val("")
+                      //Emitimos el mensaje
+                      socket.emit("chat", message);
+                  }
+              });
+          }
+
+      };
   </script>
 </body>
 </html>

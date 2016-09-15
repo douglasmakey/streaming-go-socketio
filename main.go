@@ -24,9 +24,9 @@ type namespace struct {
 	name			string				//Nombre del namespace
 	counter			int				//Consumidores conectados
 	emitter 		*transmitter			//El emisor de dicho Namespace
-	consumers 		map[string]*consumer		//Map para guardar los consumidores
+	consumers 		map[string]*consumer		//Map para que recibe un puntero de la estructura consumidor, para almacenar los consumidores
 }
-//Creamos un map para guardar los namespaces
+//Creamos un map que recibe un puntero de la estrucutra namespacee para guardar los mismos
 var namespaces = make(map[string]*namespace)
 
 //Declaramos la url base del proyecto
@@ -42,8 +42,9 @@ func main() {
 	server.On("connection", func(so socketio.Socket) {
 		log.Println("On connection")
 
-		//Declaramos la variable donde almacenaremos el Namespace
+		//Declaramos la variable donde almacenaremos un puntero al Namespace
 		var nsp *namespace
+
 		//Capturamos la variable 'type' que envian al conectarse al socket por QueryParam
 		tp := so.Request().FormValue("type")
 		//Capturamos al nombre del namespace del emisor
@@ -104,7 +105,7 @@ func main() {
 			so.Join("stream-" + name)
 
 			//Definimos la urlBase para los consumidores
-			url := urlBase + "type=consumer&namespace=" + name
+			url := urlBase + "namespace=" + name
 
 			//Emitimos al Emisor su url para consumir
 			so.Emit("url", url)

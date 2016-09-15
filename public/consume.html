@@ -56,7 +56,7 @@
               var user = $("#name").val()
 
               //Instanciamos Socketio, pasando por QueryParam los parametros de conexion
-              var socket = io.connect('', {query: 'type=consumer&namespace=' + namespace + '&user=' + user, reconnection: false});
+              var socket = io.connect('', {query: 'namespace=' + namespace + '&user=' + user, reconnection: false});
 
               socket.on('stream-' + namespace, function(image){
                   var img = document.getElementById("play");
