@@ -1,9 +1,12 @@
 Un pequeño proyecto de Streaming en GO, utilizando Socketio
 
-Buenas chicos, este pequeño proyecto lo lleve a cabo para practicar un poco con GO, fue un proyecto que vi hace un tiempo
-por internet que hicieron con Nodejs y lo quise replicar en Go.
+Buenas chicos, este pequeño proyecto lo lleve a cabo para practicar un poco con GO, el codigo como veran acontinuacion es muy sencillo, fue un proyecto que vi hace un tiempo por internet que hicieron con Nodejs y Socketio y me llamo la atencion, ya que no es el típico ejemplo de Chat con socket.
 
-Utilizando la libreria Socketio en Go:
+Para este articulo necesitamos tener instalado Go, si no lo tienen aqui un buen articulo.
+https://medium.com/@golang_es/instalación-de-go-golang-6fd5d7b9eb48#.bjg97j6yl
+
+
+Utilizaremos la libreria Socketio en Go:
 <a href="https://github.com/googollee/go-socket.io">https://github.com/googollee/go-socket.io</a>
 
 Más las librerías estándar de Go:
@@ -13,25 +16,40 @@ Más las librerías estándar de Go:
 El código es muy simple y la mayoría tiene comentarios que explican su funcionamiento.
 
 <strong>- Archivo main.go</strong>
-Declaramos una variable uint8 'unsigned 8-bit' para mantener el numero de consumidores conectados que va en rango (0-255)
-var consumeConnectCounter uint8
-
-Manejando los eventos:
-stream: para recibir y transmitir
-count-consume: para notificar el emisor cuantos consumidores estan conectados
-disconnection: para llevar el control del contador de consumidores.
-
-<pre class="lang:go decode:true">package main
+<pre class="lang:go decode:true">
+package main
 
 import (
 	"github.com/googollee/go-socket.io"
 	"log"
 	"net/http"
+	"strconv"
 )
 
+//Declaramos un tipo transmitter que tendrá la estructura del emisor.
+type transmitter struct {
+	Id		string				//Id del socket
+	so		socketio.Socket			//Socket
+}
 
-//Declaramos una variable, en la cual llevaremos el conteo de los consumidores conectados !
-var consumeConnectCounter uint8
+//Declaramos un tipo consumer que tendrá la estructura del consumidor
+type consumer struct {
+	Id		string		//Id del socket
+	name		string		//Nommbre del consumidor
+}
+
+//Creamos el tipo namespace que tendrá la estructura del mismo.
+type namespace struct {
+	name			string				//Nombre del namespace
+	counter			int				//Consumidores conectados
+	emitter 		*transmitter			//El emisor de dicho Namespace
+	consumers 		map[string]*consumer		//Map para guardar los consumidores
+}
+//Creamos un map para guardar los namespaces
+var namespaces = make(map[string]*namespace)
+
+//Declaramos la url base del proyecto
+var urlBase string = "http://localhost:5000/consume.html?"
 
 func main() {
 	//Iniciamos el socket
@@ -39,30 +57,125 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	server.On("connection", func(so socketio.Socket) {
 		log.Println("On connection")
 
-		//Ingresamos a la sala 'stream'
-		so.Join("stream")
-
-		//Llevamos el conteo de cuantos consumidores conectados y notificamos al que emite.
-		consumeConnectCounter += 1
-
-		//Emitimos
-		if consumeConnectCounter &gt; 1 {
-			log.Println("Se ha connectado un nuevo Consumidor")
-			so.Emit("count-consume", consumeConnectCounter)
+		//Declaramos la variable donde almacenaremos el Namespace
+		var nsp *namespace
+		//Capturamos la variable 'type' que envían al conectarse al socket por QueryParam
+		tp := so.Request().FormValue("type")
+		//Capturamos al nombre del namespace del emisor
+		name := so.Request().FormValue("namespace")
+		//Seteamos por defecto si no vienen variables.
+		if tp == "" {
+			tp = "consumer"
+		}
+		if name == ""  {
+			name = "default"
 		}
 
-		//Recibimos la emicion y la enviamos a todos los consumidores
+		//Verificamos el tipo
+		if tp == "consumer" {
+			//Obtenemos el namespace de acuerdo al nombre
+			nsp = namespaces[name]
+			//Validamos que existe el Namespace, si no desconectamos el socket actual
+			if nsp == nil {
+				log.Println("Namespace no encontrado")
+				so.Emit("disconnect", "Desconectado")
+				return
+			}
+
+			log.Println("Se ha conectado un nuevo Consumidor al Namespace: " + nsp.name)
+			//Capturamos al nombre del usuario consumidor
+			user := so.Request().FormValue("user")
+			//Si el consumidor no envió su nombre, le asignamos uno.
+			if user == "" {
+				user = "Consumidor" + strconv.Itoa(nsp.counter)
+			}
+
+			//Agregamos el consumidor al MAP de consumidores en el Namespace.
+			nsp.consumers[so.Id()] = &consumer{so.Id(), user}
+
+			//Ingresamos a la sala correspondiente al namespace
+			so.Join("stream-" + nsp.name)
+
+			//Llevamos el conteo de cuántos consumidores conectados y notificamos al que emite.
+			nsp.counter += 1
+
+			//Validamos que emit no este vacio y notificamos al emisor la cantidad de consumidores.
+			if nsp.emitter != nil {
+				nsp.emitter.so.Emit("count-consume", nsp.counter)
+			}
+		} else {
+			//Type Emisor
+
+			//Creamos el namespace
+			nsp = &namespace{name, 0, &transmitter{so.Id(), so}, make(map[string]*consumer)}
+
+			//Guardamos el Namespace en el map de Namespaces
+			namespaces[nsp.name] = nsp
+
+			//Log
+			log.Println("Se ha conectado un emisor y se crea el namespace: " + name)
+
+			//Ingresamos a la sala correspondiente al namespace
+			so.Join("stream-" + name)
+
+			//Definimos la urlBase para los consumidores
+			url := urlBase + "type=consumer&namespace=" + name
+
+			//Emitimos al Emisor su url para consumir
+			so.Emit("url", url)
+		}
+
+		//Recibimos la emicion y la enviamos a todos los consumidores correspondientes al namespace
 		so.On("stream", func(image string) {
-			so.BroadcastTo("stream", "stream", image)
+			eventAndBro := "stream-" + nsp.name
+			so.BroadcastTo(eventAndBro, eventAndBro, image)
 		})
 
-		so.On("disconnection", func() {
-			log.Println("Se ha desconectado un Consumidor")
-			consumeConnectCounter -= 1
+		//Recibimos los mensajes del chat y reenviamos a la sala a cual pertenece
+		so.On("chat", func(m string) {
+			//userName para guardar el nombre de quien emite.
+			var userName string
+			//Tipo: 'Emisor' se guarda el nombre del Namespace
+			userName = nsp.name
+
+			//Tipo: 'consumer' se guarda el nombre del consumidor
+			if tp == "consumer"{
+				userName = nsp.consumers[so.Id()].name
+			}
+
+			//Creamos la data que enviaremos.
+			data := make(map[string]interface{})
+			data["name"] = userName
+			data["message"] = m
+
+			//Emit
+			so.BroadcastTo("stream-" + nsp.name, "message-" + nsp.name, data)
+
 		})
+
+		//Manejamos la desconexiones
+		so.On("disconnection", func() {
+			if tp == "consumer"{
+				log.Println("Se ha desconectado un Consumidor")
+				//disminuimos el contador
+				nsp.counter -= 1
+
+				//Validamos que emisor no este vacio y notificamos al mismo la cantidad de consumidores.
+				if nsp.emitter != nil {
+					nsp.emitter.so.Emit("count-consume", nsp.counter)
+				}
+			} else {
+				//Debemos eliminar el emisor y notificar a los consumidores del mismo
+				log.Println("Se ha desconectado el emisor del namespace: " + nsp.name)
+				so.BroadcastTo("stream-" + nsp.name, "streaming-closed", "closed")
+			}
+
+		})
+
 	})
 
 	//Imprimimos los errores del socket en caso que hayan.
@@ -71,17 +184,17 @@ func main() {
 	})
 
 	http.Handle("/socket.io/", server)
-	//Urilizamos http.FileServer y le pasamos la carpeta donde estan los archivos Estaticos.
+
+	//Utilizamos http.FileServer y le pasamos la carpeta donde estan los archivos Estáticos.
 	http.Handle("/", http.FileServer(http.Dir("./public")))
 	log.Println("Serving at localhost:5000")
 	log.Fatal(http.ListenAndServe(":5000", nil))
 }
-
 </pre>
 
 <strong>- Archivo index.html</strong>
+Simple index, que muestra un link a la pagina de emisor.
 
-Simple links para visualizar paginas "emit" y "consume"
 <pre class="lang:xhtml decode:true">
 <!DOCTYPE html>
 <html lang="es">
@@ -91,8 +204,7 @@ Simple links para visualizar paginas "emit" y "consume"
   </head>
   <body>
     <p>Streaming en Go con Socketio</p>
-    <p><a href="emit.html">Emitir</a></p>
-    <p><a href="consume.html">Consumir</a></p>
+    <p><a href="emit.html">Ir a emitir</a></p>
   </body>
 </html>
 </pre>
@@ -101,15 +213,14 @@ Simple links para visualizar paginas "emit" y "consume"
 
 En el archivo "emit.html" el objeto menos común es 'navigator.getUserMedia'
 
-Pide al usuario permiso para usar un dispositivo multimedia como una cámara o micrófono. Si el usuario concede este permiso,
-el successCallback es invocado en la aplicación llamada con un objeto LocalMediaStream como argumento.
+Pide al usuario permiso para usar un dispositivo multimedia como una cámara o micrófono.
+Si el usuario concede este permiso, el successCallback es invocado en la aplicación llamada con un objeto LocalMediaStream como argumento.
 
 //En este proyecto, solo solicite 'video'
 navigator.getUserMedia ( { video: true, audio: true }, successCallback, errorCallback );
 
 <strong>successCallback</strong>
-La función getUserMedia llamará a la función especificada en el successCallback con el objeto LocalMediaStream
-que contenga la secuencia multimedia. Puedes asignar el objeto al elemento apropiado y trabajar con él.
+La función getUserMedia llamará a la función especificada en el successCallback con el objeto LocalMediaStream que contenga la secuencia multimedia. Puedes asignar el objeto al elemento apropiado y trabajar con él.
 
 <strong>errorCallback</strong>
 La función getUserMedia llama a la función indicada en el errorCallback con un código como argumento.
@@ -125,6 +236,10 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
 </head>
 <body>
     <h2 class="center">Video</h2>
+    <div class="box-namespace">
+        <input type="text" id="namespace">
+        <button onclick="initSocket()">Iniciar Streaming</button>
+    </div>
     <video src="" id="video" autoplay="true"></video>
     <canvas id="preview" style="display:none;"></canvas>
 
@@ -134,76 +249,125 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
             <spam id="logger"></spam>
         </div>
     </div>
-
-    <div  class="isa_info">
-        <div class="logger">
-            <i class="fa fa-info-circle"></i>
-            Consumidores conectados: <spam id="counter"></spam>
+    <div id="info" class="hidden">
+        <div  class="isa_info hidden">
+            <div class="logger">
+                <i class="fa fa-info-circle"></i>
+                Consumidores conectados: <spam id="counter"></spam>
+            </div>
+        </div>
+        <div  class="isa_info hidden">
+            <div class="logger">
+                URL: <spam id="url"></spam>
+            </div>
+        </div>
+        <div id="chat" class="center">
+            <div id="box_chat" class="center"></div>
+            <input class="center" type="text" id="message" placeholder="Escribe tu Mensaje">
         </div>
     </div>
-
   <script type="text/javascript" charset="utf-8">
-    //Obtenemos el canvas y el contexto y fijamos su tamaño.
-    var canvas = document.getElementById("preview");
-    var context = canvas.getContext("2d");
-    canvas.width = 800;
-    canvas.height = 600;
-    context.width = canvas.width;
-    context.height = canvas.height;
+    function initSocket(){
 
-    //Obtenemos el DIV donde se mostrara el video
-    var video = document.getElementById("video");
+        //Obtenemos el namespace que indicamos en el input
+        var namespace  = $("#namespace").val();
 
-    //Instanciamos Socketio
-    var socket = io();
+        //Instanciamos Socketio, pasando por QueryParam los parametros de conexion
+        var socket = io.connect('', {query: 'type=emit&namespace=' + namespace });
 
+        //Obtenemos el DIV donde se mostrara el video
+        var video = document.getElementById("video");
 
-    //Actualizamos el contador
-    socket.on("count-consume", function (count) {
-        console.log(count)
-      $("#counter").text(count)
-    });
-
-    function logger(type, msg){
-        if (type == 'sucess'){
-            $("#box_logger").addClass("isa_success")
-            $("#box_logger-icon").addClass("fa fa-check")
-        }else{
-            $("#box_logger").addClass("isa_error")
-            $("#box_logger-icon").addClass("fa fa-times-circle")
-        }
-      $("#logger").text(msg);
-    }
-
-    function ok(stream){
-      video.src = window.URL.createObjectURL(stream)
-      logger('sucess', 'Camara disponible !');
-    }
-
-    function fail(){
-      logger('error', 'Ha ocurrido un problema, No logramos detectar su Camara !');
-    }
+        //Obtenemos el canvas y el contexto y fijamos su tamaño.
+        var canvas = document.getElementById("preview");
+        var context = canvas.getContext("2d");
+        canvas.width = 400;
+        canvas.height = 400;
+        context.width = canvas.width;
+        context.height = canvas.height;
 
 
-    function Consume(video, context){
-      context.drawImage(video, 0, 0, context.width, context.height);
-      socket.emit('stream', canvas.toDataURL('image/webp'));
-    }
+        //Evento[count-consume] - Actualizamos el contador segun lso consumidores
+        socket.on("count-consume", function (count) {
+            console.log(count)
+            $("#counter").text(count)
+        });
 
-    $(function(){
+        //Evento[url] - renderizamos la url que recibimos
+        socket.on("url", function (url) {
+            $("#url").text(url)
+        });
+
+        //Obtenemos el div de la caja de chat
+        var $boxChat = $("#box_chat");
+
+        //Evento[message-namespace] - renderizamos los mensajes que recibimos del socket
+        socket.on('message-' + namespace, function(data){
+            $boxChat.append("<p>" + data.name + ": "  + data.message + "</p>");
+        });
+
+        //Obtenemos el input del mensaje
+        var $message = $("#message");
+        //capturamos el evento keyup y validamos que sea la tecla ENTER
+        $message.keyup(function(event){
+            if(event.keyCode == 13){
+                //Obtenemos el valor del input
+                var message = $($message).val();
+                //Realizamos el append a la caja
+                $boxChat.append("<p> Yo:"   + message + "</p>");
+                //Volvemos a poner en blanco el valor del input
+                $message.val("")
+                //Emitimos el mensaje
+                socket.emit("chat", message);
+            }
+        });
+
         //Obtenemos el getUserMedia segun el navegador
         navigator.getUserMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia
-                                || navigator.mozGetUserMedia || navigator.msgGetUserMedia);
+        || navigator.mozGetUserMedia || navigator.msgGetUserMedia);
 
-      if(navigator.getUserMedia){
-        navigator.getUserMedia({video:true}, ok, fail);
-      }
+        if(navigator.getUserMedia){
+            navigator.getUserMedia({video:true}, ok, fail);
+        }
 
-      setInterval(function(){
-        Consume(video, context)
-      }, 50);
+        //Se encarga de ejecutar la function Consume para realizar el proceso.
+        setInterval(function(){
+            Consume(video, context)
+        }, 100);
 
-    });
+        //funcion que se encarga de los mensajes
+        function logger(type, msg){
+            if (type == 'sucess'){
+                $("#box_logger").addClass("isa_success")
+                $("#box_logger-icon").addClass("fa fa-check")
+            }else{
+                $("#box_logger").addClass("isa_error")
+                $("#box_logger-icon").addClass("fa fa-times-circle")
+            }
+            var info = $("#info")
+            info.removeClass("hidden")
+            info.addClass("show")
+            $("#logger").text(msg);
+        }
+
+        //successCallback que le pasamos a getUserMedia
+        function ok(stream){
+            video.src = window.URL.createObjectURL(stream)
+            logger('sucess', 'Camara disponible !');
+        }
+
+        //errorCallback que le pasamos a getUserMedia
+        function fail(){
+            logger('error', 'Ha ocurrido un problema, No logramos detectar su Camara !');
+        }
+
+
+        function Consume(video, context){
+            context.drawImage(video, 0, 0, context.width, context.height);
+            socket.emit('stream', canvas.toDataURL('image/webp'));
+        }
+
+    }
   </script>
 </body>
 </html>
@@ -283,6 +447,7 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
 </pre>
 
 
-Para los que deseen ver el repositorio y contribuir o hacer alguna crítica constructiva :D
+Este es el primer ariticulo que escribo de muchos "eso espero", la verdad me costo bastante hacerlo a pesar que es corto, pero como desarrolladores debemos poder compartir conocimiento con la comunidad y que mejor forma de hacerlo que empezando con pequeños artículos, los invito a que se animen y realicen sus propios artículos para compartir contenido.
 
+Para los que deseen ver el repositorio y contribuir o hacer alguna crítica :D
 Github: <a href="https://github.com/douglasmakey/streaming-go-socketio">https://github.com/douglasmakey/streaming-go-socketio</a>

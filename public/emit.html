@@ -8,6 +8,10 @@
 </head>
 <body>
     <h2 class="center">Video</h2>
+    <div class="box-namespace">
+        <input type="text" id="namespace">
+        <button onclick="initSocket()">Iniciar Streaming</button>
+    </div>
     <video src="" id="video" autoplay="true"></video>
     <canvas id="preview" style="display:none;"></canvas>
 
@@ -17,76 +21,125 @@
             <spam id="logger"></spam>
         </div>
     </div>
-
-    <div  class="isa_info">
-        <div class="logger">
-            <i class="fa fa-info-circle"></i>
-            Consumidores conectados: <spam id="counter"></spam>
+    <div id="info" class="hidden">
+        <div  class="isa_info hidden">
+            <div class="logger">
+                <i class="fa fa-info-circle"></i>
+                Consumidores conectados: <spam id="counter"></spam>
+            </div>
+        </div>
+        <div  class="isa_info hidden">
+            <div class="logger">
+                URL: <spam id="url"></spam>
+            </div>
+        </div>
+        <div id="chat" class="center">
+            <div id="box_chat" class="center"></div>
+            <input class="center" type="text" id="message" placeholder="Escribe tu Mensaje">
         </div>
     </div>
-
   <script type="text/javascript" charset="utf-8">
-    //Obtenemos el canvas y el contexto y fijamos su tamaño.
-    var canvas = document.getElementById("preview");
-    var context = canvas.getContext("2d");
-    canvas.width = 800;
-    canvas.height = 600;
-    context.width = canvas.width;
-    context.height = canvas.height;
+    function initSocket(){
 
-    //Obtenemos el DIV donde se mostrara el video
-    var video = document.getElementById("video");
+        //Obtenemos el namespace que indicamos en el input
+        var namespace  = $("#namespace").val();
 
-    //Instanciamos Socketio
-    var socket = io();
+        //Instanciamos Socketio, pasando por QueryParam los parametros de conexion
+        var socket = io.connect('', {query: 'type=emit&namespace=' + namespace });
 
+        //Obtenemos el DIV donde se mostrara el video
+        var video = document.getElementById("video");
 
-    //Actualizamos el contador
-    socket.on("count-consume", function (count) {
-        console.log(count)
-      $("#counter").text(count)
-    });
-
-    function logger(type, msg){
-        if (type == 'sucess'){
-            $("#box_logger").addClass("isa_success")
-            $("#box_logger-icon").addClass("fa fa-check")
-        }else{
-            $("#box_logger").addClass("isa_error")
-            $("#box_logger-icon").addClass("fa fa-times-circle")
-        }
-      $("#logger").text(msg);
-    }
-
-    function ok(stream){
-      video.src = window.URL.createObjectURL(stream)
-      logger('sucess', 'Camara disponible !');
-    }
-
-    function fail(){
-      logger('error', 'Ha ocurrido un problema, No logramos detectar su Camara !');
-    }
+        //Obtenemos el canvas y el contexto y fijamos su tamaño.
+        var canvas = document.getElementById("preview");
+        var context = canvas.getContext("2d");
+        canvas.width = 400;
+        canvas.height = 400;
+        context.width = canvas.width;
+        context.height = canvas.height;
 
 
-    function Consume(video, context){
-      context.drawImage(video, 0, 0, context.width, context.height);
-      socket.emit('stream', canvas.toDataURL('image/webp'));
-    }
+        //Evento[count-consume] - Actualizamos el contador segun lso consumidores
+        socket.on("count-consume", function (count) {
+            console.log(count)
+            $("#counter").text(count)
+        });
 
-    $(function(){
+        //Evento[url] - renderizamos la url que recibimos
+        socket.on("url", function (url) {
+            $("#url").text(url)
+        });
+
+        //Obtenemos el div de la caja de chat
+        var $boxChat = $("#box_chat");
+
+        //Evento[message-namespace] - renderizamos los mensajes que recibimos del socket
+        socket.on('message-' + namespace, function(data){
+            $boxChat.append("<p>" + data.name + ": "  + data.message + "</p>");
+        });
+
+        //Obtenemos el input del mensaje
+        var $message = $("#message");
+        //capturamos el evento keyup y validamos que sea la tecla ENTER
+        $message.keyup(function(event){
+            if(event.keyCode == 13){
+                //Obtenemos el valor del input
+                var message = $($message).val();
+                //Realizamos el append a la caja
+                $boxChat.append("<p> Yo:"   + message + "</p>");
+                //Volvemos a poner en blanco el valor del input
+                $message.val("")
+                //Emitimos el mensaje
+                socket.emit("chat", message);
+            }
+        });
+
         //Obtenemos el getUserMedia segun el navegador
         navigator.getUserMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia
-                                || navigator.mozGetUserMedia || navigator.msgGetUserMedia);
+        || navigator.mozGetUserMedia || navigator.msgGetUserMedia);
 
-      if(navigator.getUserMedia){
-        navigator.getUserMedia({video:true}, ok, fail);
-      }
+        if(navigator.getUserMedia){
+            navigator.getUserMedia({video:true}, ok, fail);
+        }
 
-      setInterval(function(){
-        Consume(video, context)
-      }, 50);
+        //Se encarga de ejecutar la function Consume para realizar el proceso.
+        setInterval(function(){
+            Consume(video, context)
+        }, 100);
 
-    });
+        //funcion que se encarga de los mensajes
+        function logger(type, msg){
+            if (type == 'sucess'){
+                $("#box_logger").addClass("isa_success")
+                $("#box_logger-icon").addClass("fa fa-check")
+            }else{
+                $("#box_logger").addClass("isa_error")
+                $("#box_logger-icon").addClass("fa fa-times-circle")
+            }
+            var info = $("#info")
+            info.removeClass("hidden")
+            info.addClass("show")
+            $("#logger").text(msg);
+        }
+
+        //successCallback que le pasamos a getUserMedia
+        function ok(stream){
+            video.src = window.URL.createObjectURL(stream)
+            logger('sucess', 'Camara disponible !');
+        }
+
+        //errorCallback que le pasamos a getUserMedia
+        function fail(){
+            logger('error', 'Ha ocurrido un problema, No logramos detectar su Camara !');
+        }
+
+
+        function Consume(video, context){
+            context.drawImage(video, 0, 0, context.width, context.height);
+            socket.emit('stream', canvas.toDataURL('image/webp'));
+        }
+
+    }
   </script>
 </body>
 </html>
