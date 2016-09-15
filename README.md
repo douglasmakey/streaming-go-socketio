@@ -1,9 +1,11 @@
+<h1>Streaming con GO</h1>
+
 Un pequeño proyecto de Streaming en GO, utilizando Socketio
 
 Buenas chicos, este pequeño proyecto lo lleve a cabo para practicar un poco con GO, el codigo como veran acontinuacion es muy sencillo, fue un proyecto que vi hace un tiempo por internet que hicieron con Nodejs y Socketio y me llamo la atencion, ya que no es el típico ejemplo de Chat con socket.
 
-
 Asi que veran un simple funcionamiento de la Librería de Socketio para Golang, he trabajado en varios proyectos y me ha tocado implementar soluciones en tiempo real, dichas soluciones todas las lleve a cabo con Socketio para Nodejs pero esta vez quise probar la que encontré para Go para este ejemplo, no se si dicha librería abarca hoy día toda la solucion que ofrece la Oficial para NodeJS, pero para la simplicidad de este ejemplo logró encajar perfecta.
+
 Para este articulo necesitamos tener instalado Go:
 <a href="https://programadores.io/instalando-go/">Instalando Go</a>
 
@@ -17,13 +19,11 @@ Más las librerías estándar de Go:
 
 El código es muy simple y la mayoría tiene comentarios que explican su funcionamiento.
 
-
 NOTA: En este pequeño proyecto utilice el manejador de dependecias GLIDE Descargamos o clonamos el repositorio en el directorio que nos plazca, ingresamos a la carpeta y ejecutamos
 <code>glide install</code>
 
 
-
-<strong>- Archivo main.go</strong>
+<h2>Archivo main.go</h2>
 <pre class="lang:go decode:true">
 package main
 
@@ -32,6 +32,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"regexp"
 )
 
 //Declaramos un tipo transmitter que tendrá la estructura del emisor.
@@ -43,7 +44,7 @@ type transmitter struct {
 //Declaramos un tipo consumer que tendrá la estructura del consumidor
 type consumer struct {
 	Id		string		//Id del socket
-	name		string		//Nommbre del consumidor
+	name		string		//Nombre del consumidor
 }
 
 //Creamos el tipo namespace que tendrá la estructura del mismo.
@@ -51,9 +52,9 @@ type namespace struct {
 	name			string				//Nombre del namespace
 	counter			int				//Consumidores conectados
 	emitter 		*transmitter			//El emisor de dicho Namespace
-	consumers 		map[string]*consumer		//Map para guardar los consumidores
+	consumers 		map[string]*consumer		//Map para que recibe un puntero de la estructura consumidor, para almacenar los consumidores
 }
-//Creamos un map para guardar los namespaces
+//Creamos un map que recibe un puntero de la estructura namespace para guardar los mismos
 var namespaces = make(map[string]*namespace)
 
 //Declaramos la url base del proyecto
@@ -69,8 +70,9 @@ func main() {
 	server.On("connection", func(so socketio.Socket) {
 		log.Println("On connection")
 
-		//Declaramos la variable donde almacenaremos el Namespace
+		//Declaramos la variable donde almacenaremos un puntero al Namespace
 		var nsp *namespace
+
 		//Capturamos la variable 'type' que envían al conectarse al socket por QueryParam
 		tp := so.Request().FormValue("type")
 		//Capturamos al nombre del namespace del emisor
@@ -108,7 +110,7 @@ func main() {
 			//Ingresamos a la sala correspondiente al namespace
 			so.Join("stream-" + nsp.name)
 
-			//Llevamos el conteo de cuántos consumidores conectados y notificamos al que emite.
+			//Llevamos el conteo de cuantos consumidores conectados y notificamos al que emite.
 			nsp.counter += 1
 
 			//Validamos que emit no este vacio y notificamos al emisor la cantidad de consumidores.
@@ -131,7 +133,7 @@ func main() {
 			so.Join("stream-" + name)
 
 			//Definimos la urlBase para los consumidores
-			url := urlBase + "type=consumer&namespace=" + name
+			url := urlBase + "namespace=" + name
 
 			//Emitimos al Emisor su url para consumir
 			so.Emit("url", url)
@@ -145,6 +147,11 @@ func main() {
 
 		//Recibimos los mensajes del chat y reenviamos a la sala a cual pertenece
 		so.On("chat", func(m string) {
+			//Validamos que el mensaje no contenga etiquetas HTML
+			if m, _ := regexp.MatchString(`<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>`, m); !m {
+				return false
+			}
+
 			//userName para guardar el nombre de quien emite.
 			var userName string
 			//Tipo: 'Emisor' se guarda el nombre del Namespace
@@ -198,10 +205,11 @@ func main() {
 	log.Println("Serving at localhost:5000")
 	log.Fatal(http.ListenAndServe(":5000", nil))
 }
+
 </pre>
 
-<strong>- Archivo index.html</strong>
-Simple index, que muestra un link a la pagina de emisor.
+<h2>Archivo index.html</h2>
+Simple index, que muestra un link a la página de emisor.
 
 <pre class="lang:xhtml decode:true">
 <!DOCTYPE html>
@@ -217,7 +225,7 @@ Simple index, que muestra un link a la pagina de emisor.
 </html>
 </pre>
 
-<strong>- Archivo emit.html</strong>
+<h2>Archivo emit.html</h2>
 
 En el archivo "emit.html" el objeto menos común es 'navigator.getUserMedia'
 
@@ -316,17 +324,22 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
 
         //Obtenemos el input del mensaje
         var $message = $("#message");
-        //capturamos el evento keyup y validamos que sea la tecla ENTER
+          //capturamos el evento keyup y validamos que sea la tecla ENTER
         $message.keyup(function(event){
             if(event.keyCode == 13){
-                //Obtenemos el valor del input
-                var message = $($message).val();
-                //Realizamos el append a la caja
-                $boxChat.append("<p> Yo:"   + message + "</p>");
-                //Volvemos a poner en blanco el valor del input
-                $message.val("")
-                //Emitimos el mensaje
-                socket.emit("chat", message);
+                if ($message.val().match(/<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/)) {
+                    alert('No puedes utilizar HTML');
+                    $message.val("")
+                } else {
+                    //Obtenemos el valor del input
+                    var message = $($message).val();
+                    //Realizamos el append a la caja
+                    $boxChat.append("<p> Yo: "   + message + "</p>");
+                    //Volvemos a poner en blanco el valor del input
+                    $message.val("")
+                    //Emitimos el mensaje
+                    socket.emit("chat", message);
+                }
             }
         });
 
@@ -381,7 +394,7 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
 </html>
 </pre>
 
-<strong>- Archivo consume.html</strong>
+<h2>Archivo consume.html</h2>
 
 <pre class="lang:xhtml decode:true ">
 <html>
@@ -463,19 +476,24 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
 
               //Obtenemos el input del mensaje
               var $message = $("#message");
-              //capturamos el evento keyup y validamos que sea la tecla ENTER
-              $message.keyup(function(event){
-                  if(event.keyCode == 13){
-                      //Obtenemos el valor del input
-                      var message = $($message).val();
-                      //Realizamos el append a la caja
-                      $boxChat.append("<p> Yo:"   + message + "</p>");
-                      //Volvemos a poner en blanco el valor del input
-                      $message.val("")
-                      //Emitimos el mensaje
-                      socket.emit("chat", message);
-                  }
-              });
+        //capturamos el evento keyup y validamos que sea la tecla ENTER
+        $message.keyup(function(event){
+            if(event.keyCode == 13){
+                if ($message.val().match(/<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/)) {
+                    alert('No puedes utilizar HTML');
+                    $message.val("")
+                } else {
+                    //Obtenemos el valor del input
+                    var message = $($message).val();
+                    //Realizamos el append a la caja
+                    $boxChat.append("<p> Yo: "   + message + "</p>");
+                    //Volvemos a poner en blanco el valor del input
+                    $message.val("")
+                    //Emitimos el mensaje
+                    socket.emit("chat", message);
+                }
+            }
+        });
           }
 
       };
@@ -484,7 +502,7 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
 </html>
 </pre>
 
-<strong>- Archivo init.css</strong>
+<h2>Archivo init.css</h2>
 <pre lang="css">
 /* Tengo como 1 año sin hacer nada de  CSS */
 @import url('//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css');
