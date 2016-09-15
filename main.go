@@ -8,26 +8,26 @@ import (
 	"regexp"
 )
 
-//Declaramos un tipo transmitter que tendra la estructura del emisor.
+//Declaramos un tipo transmitter que tendrá la estructura del emisor.
 type transmitter struct {
 	Id		string				//Id del socket
 	so		socketio.Socket			//Socket
 }
 
-//Declaramos un tipo consumer que tendra la estructura del consumidor
+//Declaramos un tipo consumer que tendrá la estructura del consumidor
 type consumer struct {
 	Id		string		//Id del socket
-	name		string		//Nommbre del consumidor
+	name		string		//Nombre del consumidor
 }
 
-//Creamos el tipo namespace que tendra la estructura del mismo.
+//Creamos el tipo namespace que tendrá la estructura del mismo.
 type namespace struct {
 	name			string				//Nombre del namespace
 	counter			int				//Consumidores conectados
 	emitter 		*transmitter			//El emisor de dicho Namespace
 	consumers 		map[string]*consumer		//Map para que recibe un puntero de la estructura consumidor, para almacenar los consumidores
 }
-//Creamos un map que recibe un puntero de la estrucutra namespacee para guardar los mismos
+//Creamos un map que recibe un puntero de la estructura namespace para guardar los mismos
 var namespaces = make(map[string]*namespace)
 
 //Declaramos la url base del proyecto
@@ -46,7 +46,7 @@ func main() {
 		//Declaramos la variable donde almacenaremos un puntero al Namespace
 		var nsp *namespace
 
-		//Capturamos la variable 'type' que envian al conectarse al socket por QueryParam
+		//Capturamos la variable 'type' que envían al conectarse al socket por QueryParam
 		tp := so.Request().FormValue("type")
 		//Capturamos al nombre del namespace del emisor
 		name := so.Request().FormValue("namespace")
@@ -100,7 +100,7 @@ func main() {
 			namespaces[nsp.name] = nsp
 
 			//Log
-			log.Println("Se ha connectado un emisor y se crea el namespace: " + name)
+			log.Println("Se ha conectado un emisor y se crea el namespace: " + name)
 
 			//Ingresamos a la sala correspondiente al namespace
 			so.Join("stream-" + name)
@@ -122,7 +122,6 @@ func main() {
 		so.On("chat", func(m string) {
 			//Validamos que el mensaje no contenga etiquetas HTML
 			if m, _ := regexp.MatchString(`<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>`, m); !m {
-				///<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:'[^']*')|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/
 				return false
 			}
 
@@ -146,7 +145,7 @@ func main() {
 
 		})
 
-		//Manejamos la desconeciones
+		//Manejamos la desconexiones
 		so.On("disconnection", func() {
 			if tp == "consumer"{
 				log.Println("Se ha desconectado un Consumidor")
@@ -174,7 +173,7 @@ func main() {
 
 	http.Handle("/socket.io/", server)
 
-	//Urilizamos http.FileServer y le pasamos la carpeta donde estan los archivos Estaticos.
+	//Utilizamos http.FileServer y le pasamos la carpeta donde estan los archivos Estáticos.
 	http.Handle("/", http.FileServer(http.Dir("./public")))
 	log.Println("Serving at localhost:5000")
 	log.Fatal(http.ListenAndServe(":5000", nil))
