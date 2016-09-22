@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"regexp"
 )
 
 //Declaramos un tipo transmitter que tendrá la estructura del emisor.
@@ -115,15 +114,15 @@ func main() {
 		//Recibimos la emicion y la enviamos a todos los consumidores correspondientes al namespace
 		so.On("stream", func(image string) {
 			eventAndBro := "stream-" + nsp.name
+			//Con BroadcastTo podemos enviar a todos los socket conectados a una sala
+			//so.BroadcastTo("NOMBRE-DE-SALA", "EVENT", DATA)
 			so.BroadcastTo(eventAndBro, eventAndBro, image)
 		})
 
 		//Recibimos los mensajes del chat y reenviamos a la sala a cual pertenece
 		so.On("chat", func(m string) {
-			//Validamos que el mensaje no contenga etiquetas HTML
-			if m, _ := regexp.MatchString(`<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>`, m); !m {
-				return false
-			}
+
+			//TODO: Validamos que el mensaje no contenga etiquetas HTML
 
 			//userName para guardar el nombre de quien emite.
 			var userName string
@@ -163,7 +162,6 @@ func main() {
 			}
 
 		})
-
 	})
 
 	//Imprimimos los errores del socket en caso que hayan.
@@ -171,10 +169,16 @@ func main() {
 		log.Println("error: ", err)
 	})
 
+	//Le pasamos el server de Socketio como Handle a nuestra ruta '/socketio.io/'
 	http.Handle("/socket.io/", server)
 
 	//Utilizamos http.FileServer y le pasamos la carpeta donde estan los archivos Estáticos.
 	http.Handle("/", http.FileServer(http.Dir("./public")))
-	log.Println("Serving at localhost:5000")
-	log.Fatal(http.ListenAndServe(":5000", nil))
+	log.Println("Servidor corriendo en localhost:5001")
+
+	//Levantamos el server con HTTPS utilizando certificados y llave privada del mismo.
+	error := http.ListenAndServeTLS(":5001", "cert.pem", "key.pem", nil)
+	if error != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
 }

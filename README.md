@@ -1,16 +1,25 @@
-<h1>Streaming con GO</h1>
+# Streaming con GO
+Un pequeño proyecto de Streaming en GO, utilizando Socketio.
 
-Un pequeño proyecto de Streaming en GO, utilizando Socketio
-
-Buenas chicos, este pequeño proyecto lo lleve a cabo para practicar un poco con GO, el codigo como veran acontinuacion es muy sencillo, fue un proyecto que vi hace un tiempo por internet que hicieron con Nodejs y Socketio y me llamo la atencion, ya que no es el típico ejemplo de Chat con socket.
+Buenas chicos, este pequeño proyecto lo lleve a cabo para practicar un poco con GO, el código como veran a continuacion es muy sencillo, fue un proyecto que vi hace un tiempo por internet que hicieron con Nodejs y Socketio y me llamó la atención, ya que no es el típico ejemplo de Chat con socket.
 
 Asi que veran un simple funcionamiento de la Librería de Socketio para Golang, he trabajado en varios proyectos y me ha tocado implementar soluciones en tiempo real, dichas soluciones todas las lleve a cabo con Socketio para Nodejs pero esta vez quise probar la que encontré para Go para este ejemplo, no se si dicha librería abarca hoy día toda la solucion que ofrece la Oficial para NodeJS, pero para la simplicidad de este ejemplo logró encajar perfecta.
 
-Para este articulo necesitamos tener instalado Go:
-<a href="https://programadores.io/instalando-go/">Instalando Go</a>
+### El proyecto
 
+El ejemplo o proyecto es una simple transmisión de imagen entre 1 emisor y múltiples consumidores, es decir un usuario puede iniciarse como emisor a este se le entrega una URL la cual podrá compartir para que los demás puedan consumir esa transmisión y cuenta con un chat grupal entre las personas que consumen y el que emite dicha transmisión.
+
+Varios usuarios pueden iniciarse como emisor y tendrá su url "UNICA" para que los puedan consumir.
+
+<img src="https://programadores.io/wp-content/uploads/2016/09/Captura-de-pantalla-2016-09-22-a-las-1.26.02-p.m.-1024x640.png" alt="captura-de-pantalla-2016-09-22-a-las-1-26-02-p-m" width="1024" height="640" class="alignnone size-large wp-image-201" />
+
+### Comenzamos
+
+
+Para este articulo necesitamos tener instalado Go:
+[Instalando Go](https://programadores.io/instalando-go/)
 Utilizaremos la libreria Socketio en Go:
-<a href="https://github.com/googollee/go-socket.io">https://github.com/googollee/go-socket.io</a>
+[https://github.com/googollee/go-socket.io](https://github.com/googollee/go-socket.io)
 
 Más las librerías estándar de Go:
 * log
@@ -19,12 +28,28 @@ Más las librerías estándar de Go:
 
 El código es muy simple y la mayoría tiene comentarios que explican su funcionamiento.
 
-NOTA: En este pequeño proyecto utilice el manejador de dependecias GLIDE Descargamos o clonamos el repositorio en el directorio que nos plazca, ingresamos a la carpeta y ejecutamos
-<code>glide install</code>
+Lo primero que debemos hacer es situarnos en nuestro Workspace y en la carpeta de nuestro usuario de github crear un nuevo directorio, en mi caso lo llamare streaming
+
+``mkdir $GOPATH/src/github.com/douglasmakey/streaming``
 
 
-<h2>Archivo main.go</h2>
-<pre class="lang:go decode:true">
+Luego instalaremos las librerías extras necesarias para este proyecto, como mencione anteriormente solo utilizaremos la librería de Socketio en Go, de resto serán librerías estándar del lenguaje.
+
+En mi caso utilice un administrador de paquetes de Go llamado Glide, si desean saber más sobre esta increíble herramienta tenemos un articulo del mismo [Glide Administrador de paquetes de Go](https://programadores.io/administrador-de-paquetes-en-go/)
+
+También lo podemos hacer con el comando ``go get URL`` que en este caso sería:
+
+``go get github.com/googollee/go-socket.io``
+
+
+Luego debemos crear los certificados y la llave privada para poder correr el server con HTTPS, utilizamos los siguientes comandos
+
+``openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out cert.pem``
+
+Lo que instalara la libreria go-socketio.io, luego crearemos el archivo main.go que contendrá el siguiente código:
+
+## Archivo main.go
+```go
 package main
 
 import (
@@ -139,6 +164,7 @@ func main() {
 			so.Emit("url", url)
 		}
 
+		//con so.On('NOMBRE_DEL_EVENTO', func()) hacemos el socket escuche informacion de dicho evento y procese la informacion que recibimos del mismo.
 		//Recibimos la emicion y la enviamos a todos los consumidores correspondientes al namespace
 		so.On("stream", func(image string) {
 			eventAndBro := "stream-" + nsp.name
@@ -198,20 +224,35 @@ func main() {
 		log.Println("error: ", err)
 	})
 
+	//Le pasamos el server de Socketio como Handle a nuestra ruta '/socketio.io/'
 	http.Handle("/socket.io/", server)
 
 	//Utilizamos http.FileServer y le pasamos la carpeta donde estan los archivos Estáticos.
 	http.Handle("/", http.FileServer(http.Dir("./public")))
-	log.Println("Serving at localhost:5000")
-	log.Fatal(http.ListenAndServe(":5000", nil))
+
+	log.Println("Servidor corriendo en localhost:5001")
+
+	//Levantamos el server con HTTPS utilizando certificados y llave privada del mismo.
+	error := http.ListenAndServeTLS(":5001", "cert.pem", "key.pem", nil)
+	if error != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
+
 }
+```
 
-</pre>
+Como vemos en el codigo con	http.Handle("/", http.FileServer(http.Dir("./public"))) indicamos que vamos a servir los archivos estaticos que se encuentran en la carpeta public a la ruta raiz.
 
-<h2>Archivo index.html</h2>
+Creamos dicha carpeta
+
+``mkdir public && cd public``
+
+Dentro crearemos los archivos con lo siguiente:
+
+## Archivo index.html
 Simple index, que muestra un link a la página de emisor.
 
-<pre class="lang:xhtml decode:true">
+```html
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -223,25 +264,27 @@ Simple index, que muestra un link a la página de emisor.
     <p><a href="emit.html">Ir a emitir</a></p>
   </body>
 </html>
-</pre>
+```
 
-<h2>Archivo emit.html</h2>
+## Archivo emit.html
 
 En el archivo "emit.html" el objeto menos común es 'navigator.getUserMedia'
 
 Pide al usuario permiso para usar un dispositivo multimedia como una cámara o micrófono.
 Si el usuario concede este permiso, el successCallback es invocado en la aplicación llamada con un objeto LocalMediaStream como argumento.
 
+```js
 //En este proyecto, solo solicite 'video'
 navigator.getUserMedia ( { video: true, audio: true }, successCallback, errorCallback );
+```
 
-<strong>successCallback</strong>
+**successCallback**
 La función getUserMedia llamará a la función especificada en el successCallback con el objeto LocalMediaStream que contenga la secuencia multimedia. Puedes asignar el objeto al elemento apropiado y trabajar con él.
 
-<strong>errorCallback</strong>
+**errorCallback**
 La función getUserMedia llama a la función indicada en el errorCallback con un código como argumento.
 
-<pre class="lang:xhtml decode:true ">
+```html
 <html lang="es">
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8">
@@ -392,11 +435,11 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
   </script>
 </body>
 </html>
-</pre>
+```
 
-<h2>Archivo consume.html</h2>
+## Archivo consume.html
 
-<pre class="lang:xhtml decode:true ">
+```html
 <html>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
@@ -500,10 +543,14 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
   </script>
 </body>
 </html>
-</pre>
+```
 
-<h2>Archivo init.css</h2>
-<pre lang="css">
+## Archivo init.css
+
+Como veran en las imagenes de ejemplo este proyecto tiene muy poco css, debido a que solo necesitaba lo minimo para mostrar algo funcional y que se lograra apreciar y porque realmente no soy muy bueno con el css jajaja.
+
+
+```css
 /* Tengo como 1 año sin hacer nada de  CSS */
 @import url('//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css');
 
@@ -545,10 +592,10 @@ La función getUserMedia llama a la función indicada en el errorCallback con un
     font-size:2em;
     vertical-align:middle;
 }
-</pre>
+```
 
 
 Este es el primer ariticulo que escribo de muchos "eso espero", la verdad me costo bastante hacerlo a pesar que es corto, pero como desarrolladores debemos poder compartir conocimiento con la comunidad y que mejor forma de hacerlo que empezando con pequeños artículos, los invito a que se animen y realicen sus propios artículos para compartir contenido.
 
 Para los que deseen ver el repositorio y contribuir o hacer alguna crítica :D
-Github: <a href="https://github.com/douglasmakey/streaming-go-socketio">https://github.com/douglasmakey/streaming-go-socketio</a>
+Github: [https://github.com/douglasmakey/streaming-go-socketio](https://github.com/douglasmakey/streaming-go-socketio)
