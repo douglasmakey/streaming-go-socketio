@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"github.com/douglasmakey/streaming/helpers"
 )
 
 //Declaramos un tipo transmitter que tendrá la estructura del emisor.
@@ -30,7 +31,7 @@ type namespace struct {
 var namespaces = make(map[string]*namespace)
 
 //Declaramos la url base del proyecto
-var urlBase string = "http://localhost:5000/consume.html?"
+var urlBase string = helpers.GetLocalIP()
 
 func main() {
 	//Iniciamos el socket
@@ -105,7 +106,7 @@ func main() {
 			so.Join("stream-" + name)
 
 			//Definimos la urlBase para los consumidores
-			url := urlBase + "namespace=" + name
+			url := "https://" + urlBase + "namespace=" + name
 
 			//Emitimos al Emisor su url para consumir
 			so.Emit("url", url)
@@ -122,7 +123,7 @@ func main() {
 		//Recibimos los mensajes del chat y reenviamos a la sala a cual pertenece
 		so.On("chat", func(m string) {
 
-			//TODO: Validamos que el mensaje no contenga etiquetas HTML
+			//TODO: Validar que el mensaje no contenga etiquetas HTML
 
 			//userName para guardar el nombre de quien emite.
 			var userName string
