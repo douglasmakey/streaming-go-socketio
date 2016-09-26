@@ -1,5 +1,5 @@
 # Streaming con GO
-Un pequeño proyecto de Streaming en GO, utilizando Socketio.
+Streaming en GO un pequeño proyecto, utilizando Socketio.
 
 Buenas chicos, este pequeño proyecto lo lleve a cabo para practicar un poco con GO, el código como veran a continuacion es muy sencillo, fue un proyecto que vi hace un tiempo por internet que hicieron con Nodejs y Socketio y me llamó la atención, ya que no es el típico ejemplo de Chat con socket.
 
@@ -10,7 +10,6 @@ Asi que veran un simple funcionamiento de la Librería de Socketio para Golang, 
 El ejemplo o proyecto es una simple transmisión de imagen entre 1 emisor y múltiples consumidores, es decir un usuario puede iniciarse como emisor a este se le entrega una URL la cual podrá compartir para que los demás puedan consumir esa transmisión y cuenta con un chat grupal entre las personas que consumen y el que emite dicha transmisión.
 
 Varios usuarios pueden iniciarse como emisor y tendrá su url "UNICA" para que los puedan consumir.
-
 <img src="https://programadores.io/wp-content/uploads/2016/09/Captura-de-pantalla-2016-09-22-a-las-1.26.02-p.m.-1024x640.png" alt="captura-de-pantalla-2016-09-22-a-las-1-26-02-p-m" width="1024" height="640" class="alignnone size-large wp-image-201" />
 
 ### Comenzamos
@@ -27,26 +26,50 @@ Más las librerías estándar de Go:
 * strconv
 
 El código es muy simple y la mayoría tiene comentarios que explican su funcionamiento.
-
 Lo primero que debemos hacer es situarnos en nuestro Workspace y en la carpeta de nuestro usuario de github crear un nuevo directorio, en mi caso lo llamare streaming
 
 ``mkdir $GOPATH/src/github.com/douglasmakey/streaming``
-
 
 Luego instalaremos las librerías extras necesarias para este proyecto, como mencione anteriormente solo utilizaremos la librería de Socketio en Go, de resto serán librerías estándar del lenguaje.
 
 En mi caso utilice un administrador de paquetes de Go llamado Glide, si desean saber más sobre esta increíble herramienta tenemos un articulo del mismo [Glide Administrador de paquetes de Go](https://programadores.io/administrador-de-paquetes-en-go/)
 
 También lo podemos hacer con el comando ``go get URL`` que en este caso sería:
-
-``go get github.com/googollee/go-socket.io``
-
+``go get github.com/googollee/go-socket.io``, lo que instalara la libreria go-socketio.io,
 
 Luego debemos crear los certificados y la llave privada para poder correr el server con HTTPS, utilizamos los siguientes comandos
-
 ``openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out cert.pem``
 
-Lo que instalara la libreria go-socketio.io, luego crearemos el archivo main.go que contendrá el siguiente código:
+
+Crearemos una carpeta 'helpers' en la raiz de nuestro proyecto ``mkdir helpers``, donde guardaremos codigo de ayuda, dentro de esta crearemos el archivo helpers.go, donde delcararemos una funcion para obtener la ip local de la maquina donde ejecutamos el proyecto.
+
+el package de este archivo sera el nombre de la misma carpeta donde se aloja es decir 'helpers' de esta manera podemos seperar logica en go, agrupar o desagrupar funcionalidades dentro de nuestros proyectos.
+
+## Archivo helpers.go
+```
+package helpers
+
+import "net"
+
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		//Verificamos el tipo de la dirección y si no es una dirección loopback
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			//Validamos que sea IPv4 y retornamos la dirección como un string
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
+```
+
+ Crearemos el archivo main.go que contendrá el siguiente código:
 
 ## Archivo main.go
 ```go
@@ -57,7 +80,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"regexp"
 )
 
 //Declaramos un tipo transmitter que tendrá la estructura del emisor.
@@ -83,7 +105,7 @@ type namespace struct {
 var namespaces = make(map[string]*namespace)
 
 //Declaramos la url base del proyecto
-var urlBase string = "http://localhost:5000/consume.html?"
+var urlBase string = helpers.GetLocalIP()
 
 func main() {
 	//Iniciamos el socket
@@ -158,7 +180,7 @@ func main() {
 			so.Join("stream-" + name)
 
 			//Definimos la urlBase para los consumidores
-			url := urlBase + "namespace=" + name
+			url := "https://" + urlBase + "namespace=" + name
 
 			//Emitimos al Emisor su url para consumir
 			so.Emit("url", url)
@@ -173,10 +195,8 @@ func main() {
 
 		//Recibimos los mensajes del chat y reenviamos a la sala a cual pertenece
 		so.On("chat", func(m string) {
-			//Validamos que el mensaje no contenga etiquetas HTML
-			if m, _ := regexp.MatchString(`<(\w+)((?:\s+\w+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>`, m); !m {
-				return false
-			}
+			//TODO: Validar que el mensaje no contenga etiquetas HTML
+
 
 			//userName para guardar el nombre de quien emite.
 			var userName string
@@ -244,9 +264,7 @@ func main() {
 Como vemos en el codigo con	http.Handle("/", http.FileServer(http.Dir("./public"))) indicamos que vamos a servir los archivos estaticos que se encuentran en la carpeta public a la ruta raiz.
 
 Creamos dicha carpeta
-
 ``mkdir public && cd public``
-
 Dentro crearemos los archivos con lo siguiente:
 
 ## Archivo index.html
