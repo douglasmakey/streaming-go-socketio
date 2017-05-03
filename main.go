@@ -47,7 +47,7 @@ func main() {
 		//Declaramos la variable donde almacenaremos un puntero al Namespace
 		var nsp *namespace
 
-		//Capturamos la variable 'type' que envían al conectarse al socket por QueryParam
+		//Capturamos la variable 'type' que envían al conectarse al socket por QueryString
 		tp := so.Request().FormValue("type")
 
 		//Capturamos al nombre del namespace del emisor
