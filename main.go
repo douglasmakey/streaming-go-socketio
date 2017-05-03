@@ -1,32 +1,33 @@
 package main
 
 import (
+	"github.com/douglasmakaey/streaming-go-socketio/helpers"
 	"github.com/googollee/go-socket.io"
 	"log"
 	"net/http"
 	"strconv"
-	"github.com/douglasmakey/streaming/helpers"
 )
 
 //Declaramos un tipo transmitter que tendrá la estructura del emisor.
 type transmitter struct {
-	Id		string				//Id del socket
-	so		socketio.Socket			//Socket
+	Id string          //Id del socket
+	so socketio.Socket //Socket
 }
 
 //Declaramos un tipo consumer que tendrá la estructura del consumidor
 type consumer struct {
-	Id		string		//Id del socket
-	name		string		//Nombre del consumidor
+	Id   string //Id del socket
+	name string //Nombre del consumidor
 }
 
 //Creamos el tipo namespace que tendrá la estructura del mismo.
 type namespace struct {
-	name			string				//Nombre del namespace
-	counter			int				//Consumidores conectados
-	emitter 		*transmitter			//El emisor de dicho Namespace
-	consumers 		map[string]*consumer		//Map para que recibe un puntero de la estructura consumidor, para almacenar los consumidores
+	name      string               //Nombre del namespace
+	counter   int                  //Consumidores conectados
+	emitter   *transmitter         //El emisor de dicho Namespace
+	consumers map[string]*consumer //Map para que recibe un puntero de la estructura consumidor, para almacenar los consumidores
 }
+
 //Creamos un map que recibe un puntero de la estructura namespace para guardar los mismos
 var namespaces = make(map[string]*namespace)
 
@@ -48,13 +49,15 @@ func main() {
 
 		//Capturamos la variable 'type' que envían al conectarse al socket por QueryParam
 		tp := so.Request().FormValue("type")
+
 		//Capturamos al nombre del namespace del emisor
 		name := so.Request().FormValue("namespace")
+
 		//Seteamos por defecto si no vienen variables.
 		if tp == "" {
 			tp = "consumer"
 		}
-		if name == ""  {
+		if name == "" {
 			name = "default"
 		}
 
@@ -62,6 +65,7 @@ func main() {
 		if tp == "consumer" {
 			//Obtenemos el namespace de acuerdo al nombre
 			nsp = namespaces[name]
+
 			//Validamos que existe el Namespace, si no desconectamos el socket actual
 			if nsp == nil {
 				log.Println("Namespace no encontrado")
@@ -70,8 +74,10 @@ func main() {
 			}
 
 			log.Println("Se ha connectado un nuevo Consumidor al Namespace: " + nsp.name)
+
 			//Capturamos al nombre del usuario consumidor
 			user := so.Request().FormValue("user")
+
 			//Si el consumidor no envio su nombre, le asignamos uno.
 			if user == "" {
 				user = "Consumidor" + strconv.Itoa(nsp.counter)
@@ -131,7 +137,7 @@ func main() {
 			userName = nsp.name
 
 			//Tipo: 'consumer' se guarda el nombre del consumidor
-			if tp == "consumer"{
+			if tp == "consumer" {
 				userName = nsp.consumers[so.Id()].name
 			}
 
@@ -141,13 +147,13 @@ func main() {
 			data["message"] = m
 
 			//Emit
-			so.BroadcastTo("stream-" + nsp.name, "message-" + nsp.name, data)
+			so.BroadcastTo("stream-"+nsp.name, "message-"+nsp.name, data)
 
 		})
 
 		//Manejamos la desconexiones
 		so.On("disconnection", func() {
-			if tp == "consumer"{
+			if tp == "consumer" {
 				log.Println("Se ha desconectado un Consumidor")
 				//disminuimos el contador
 				nsp.counter -= 1
@@ -159,7 +165,7 @@ func main() {
 			} else {
 				//Debemos eliminar el emisor y notificar a los consumidores del mismo
 				log.Println("Se ha desconectado el emisor del namespace: " + nsp.name)
-				so.BroadcastTo("stream-" + nsp.name, "streaming-closed", "closed")
+				so.BroadcastTo("stream-"+nsp.name, "streaming-closed", "closed")
 			}
 
 		})
